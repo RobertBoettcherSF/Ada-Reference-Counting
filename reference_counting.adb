@@ -369,8 +369,8 @@ package body Reference_Counting is
          Next(Use_It);
       end loop;
 
-      -- Add the new update
-      Manager.Pending_Updates.Append((Old_Obj => Old_Obj, New_Obj => New_Obj));
+      -- Add the new update (use local copies to avoid access checks)
+      Manager.Pending_Updates.Append((Old_Obj => Local_Old_Obj, New_Obj => Local_New_Obj));
    end Register_Update;
 
 
