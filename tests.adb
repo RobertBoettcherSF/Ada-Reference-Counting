@@ -429,6 +429,10 @@ procedure Tests is
    --  TEST 13 - Indirect Reference Counting Edge Cases
    -- ========================================================================
 
+   -- ========================================================================
+   --  TEST 13 - Indirect Reference Counting Edge Cases
+   -- ========================================================================
+
    procedure Test_Indirect_Edge_Cases is
       Source, Target : Indirect_Object_Access := null;
    begin
@@ -443,6 +447,8 @@ procedure Tests is
          when Invalid_Reference =>
             Print_Result("13.1: Adding null source raises Invalid_Reference", True);
       end;
+      Free_Indirect_Object(Target);
+      Target := null;
 
       -- 13.2: Assert that adding null target raises Invalid_Reference
       Source := Create_Indirect_Object;
@@ -453,8 +459,11 @@ procedure Tests is
          when Invalid_Reference =>
             Print_Result("13.2: Adding null target raises Invalid_Reference", True);
       end;
+      Free_Indirect_Object(Source);
+      Source := null;
 
       -- 13.3: Assert that removing null source raises Invalid_Reference
+      Target := Create_Indirect_Object;
       begin
          Remove_Indirect_Reference(Source, Target);
          Print_Result("13.3: Removing null source raises Invalid_Reference", False);
@@ -462,11 +471,9 @@ procedure Tests is
          when Invalid_Reference =>
             Print_Result("13.3: Removing null source raises Invalid_Reference", True);
       end;
-
-      -- Cleanup
-      Free_Indirect_Object(Source);
       Free_Indirect_Object(Target);
    end Test_Indirect_Edge_Cases;
+
 
    -- ========================================================================
    --  TEST 14 - Deferred Increment Edge Cases

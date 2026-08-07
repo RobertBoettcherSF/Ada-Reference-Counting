@@ -366,6 +366,7 @@ package body Reference_Counting is
    end Register_Update;
 
    -- Flush all coalesced updates
+   -- Flush all coalesced updates
    procedure Flush_Updates (Manager : in out Update_Manager_Access) is
 
       -- Use Update_Lists to make cursor operations visible
@@ -382,15 +383,12 @@ package body Reference_Counting is
          declare
             Current_Update : Update_Record := Element(Use_It);
          begin
-            -- Decrement the old object's reference count
+            -- Decrement the old object's reference count (if not null)
             if Current_Update.Old_Obj /= null then
                Current_Update.Old_Obj.Ref_Count := Current_Update.Old_Obj.Ref_Count - 1;
-               if Current_Update.Old_Obj.Ref_Count = 0 then
-                  Free_Object_Internal(Current_Update.Old_Obj);
-               end if;
             end if;
 
-            -- Increment the new object's reference count
+            -- Increment the new object's reference count (if not null)
             if Current_Update.New_Obj /= null then
                Current_Update.New_Obj.Ref_Count := Current_Update.New_Obj.Ref_Count + 1;
             end if;
@@ -401,6 +399,7 @@ package body Reference_Counting is
       -- Clear the pending updates
       Manager.Pending_Updates.Clear;
    end Flush_Updates;
+
 
    -- Free an update manager (for testing/cleanup)
    procedure Free_Update_Manager (Manager : in out Update_Manager_Access) is
