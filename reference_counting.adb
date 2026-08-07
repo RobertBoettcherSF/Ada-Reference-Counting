@@ -327,12 +327,17 @@ package body Reference_Counting is
    end Get_Pending_Updates_Count;
 
    -- Register a pointer update (coalesces redundant updates)
+   -- Register a pointer update (coalesces redundant updates)
    procedure Register_Update (
       Manager : in out Update_Manager_Access;
       Old_Obj, New_Obj : in out Object_Access) is
 
       -- Use Update_Lists to make cursor operations visible
       use Update_Lists;
+
+      -- Copy in out parameters to local variables to avoid access checks
+      Local_Old_Obj : Object_Access := Old_Obj;
+      Local_New_Obj : Object_Access := New_Obj;
 
       Use_It : Cursor := Manager.Pending_Updates.First;
       Found  : Boolean := False;
@@ -347,11 +352,11 @@ package body Reference_Counting is
             Current_Update : Update_Record := Element(Use_It);
          begin
             -- Check if the update is redundant (same old and new object)
-            if (Current_Update.Old_Obj = Old_Obj and Current_Update.New_Obj = New_Obj) then
+            if (Current_Update.Old_Obj = Local_Old_Obj and Current_Update.New_Obj = Local_New_Obj) then
                -- Skip redundant update
                return;
             -- Check if the update can be coalesced with an existing one
-            elsif (Current_Update.Old_Obj = Old_Obj or Current_Update.New_Obj = New_Obj) then
+            elsif (Current_Update.Old_Obj = Local_Old_Obj or Current_Update.New_Obj = Local_New_Obj) then
                -- Coalesce: Remove the old update and add the new one
                Manager.Pending_Updates.Delete(Use_It);
                Found := True;
@@ -362,8 +367,9 @@ package body Reference_Counting is
       end loop;
 
       -- Add the new update
-      Manager.Pending_Updates.Append((Old_Obj => Old_Obj, New_Obj => New_Obj));
+      Manager.Pending_Updates.Append((Old_Obj => Local_Old_Obj, New_Obj => Local_New_Obj));
    end Register_Update;
+
 
    -- Flush all coalesced updates
    -- Flush all coalesced updates
