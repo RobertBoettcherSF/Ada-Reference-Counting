@@ -331,7 +331,10 @@ package body Reference_Counting is
       Manager : in out Update_Manager_Access;
       Old_Obj, New_Obj : in out Object_Access) is
 
-      Use_It : Update_Lists.Cursor := Manager.Pending_Updates.First;
+      -- Use Update_Lists to make cursor operations visible
+      use Update_Lists;
+
+      Use_It : Cursor := Manager.Pending_Updates.First;
       Found  : Boolean := False;
    begin
       if Manager = null then
@@ -339,9 +342,9 @@ package body Reference_Counting is
       end if;
 
       -- Check for redundant or coalescable updates
-      while Use_It /= Update_Lists.No_Element loop
+      while Use_It /= No_Element loop
          declare
-            Current_Update : Update_Record := Update_Lists.Element(Use_It);
+            Current_Update : Update_Record := Element(Use_It);
          begin
             -- Check if the update is redundant (same old and new object)
             if (Current_Update.Old_Obj = Old_Obj and Current_Update.New_Obj = New_Obj) then
@@ -355,7 +358,7 @@ package body Reference_Counting is
                exit;
             end if;
          end;
-         Update_Lists.Next(Use_It);
+         Next(Use_It);
       end loop;
 
       -- Add the new update
@@ -364,16 +367,20 @@ package body Reference_Counting is
 
    -- Flush all coalesced updates
    procedure Flush_Updates (Manager : in out Update_Manager_Access) is
-      Use_It : Update_Lists.Cursor := Manager.Pending_Updates.First;
+
+      -- Use Update_Lists to make cursor operations visible
+      use Update_Lists;
+
+      Use_It : Cursor := Manager.Pending_Updates.First;
    begin
       if Manager = null then
          raise Invalid_Reference with "Cannot flush updates with null manager";
       end if;
 
       -- Apply all pending updates
-      while Use_It /= Update_Lists.No_Element loop
+      while Use_It /= No_Element loop
          declare
-            Current_Update : Update_Record := Update_Lists.Element(Use_It);
+            Current_Update : Update_Record := Element(Use_It);
          begin
             -- Decrement the old object's reference count
             if Current_Update.Old_Obj /= null then
@@ -388,7 +395,7 @@ package body Reference_Counting is
                Current_Update.New_Obj.Ref_Count := Current_Update.New_Obj.Ref_Count + 1;
             end if;
          end;
-         Update_Lists.Next(Use_It);
+         Next(Use_It);
       end loop;
 
       -- Clear the pending updates
@@ -606,7 +613,11 @@ package body Reference_Counting is
 
    -- Detect and collect cycles
    procedure Detect_Cycles (Detector : in out Cycle_Detector_Access) is
-      Use_It : Object_Lists.Cursor := Detector.Roots.First;
+
+      -- Use Object_Lists to make cursor operations visible
+      use Object_Lists;
+
+      Use_It : Cursor := Detector.Roots.First;
    begin
       if Detector = null then
          raise Invalid_Reference with "Cannot detect cycles with null detector";
@@ -614,9 +625,9 @@ package body Reference_Counting is
 
       -- Simulate cycle detection by checking if any object in roots has Ref_Count > 0
       -- In a real implementation, this would involve a graph traversal
-      while Use_It /= Object_Lists.No_Element loop
+      while Use_It /= No_Element loop
          declare
-            Current_Obj : Object_Access := Object_Lists.Element(Use_It);
+            Current_Obj : Object_Access := Element(Use_It);
          begin
             if Current_Obj.Ref_Count > 0 then
                Ada.Text_IO.Put_Line(
@@ -624,7 +635,7 @@ package body Reference_Counting is
                -- In a real implementation, we would decrement counts here
             end if;
          end;
-         Object_Lists.Next(Use_It);
+         Next(Use_It);
       end loop;
 
       -- Clear the roots list after detection
