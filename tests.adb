@@ -55,8 +55,6 @@ procedure Tests is
       -- 1.4: Assert that decrementing to zero deallocates the object
       Decrement_Reference(Obj1);
       Print_Result("1.4: Decrementing to zero deallocates object", Obj1 = null);
-
-      -- No need to call Free_Object here because Decrement_Reference already freed it
    end Test_Basic_Reference_Counting;
 
    -- ========================================================================
@@ -129,8 +127,6 @@ procedure Tests is
       -- 3.4: Assert that merging to zero deallocates the object
       Merge_Weight(Obj, Weight1 / 4.0);
       Print_Result("3.4: Merging to zero deallocates object", Obj = null);
-
-      -- No need to call Free_Weighted_Object here because Merge_Weight already freed it
    end Test_Weighted_Reference_Counting;
 
    -- ========================================================================
@@ -199,9 +195,8 @@ procedure Tests is
       Count := Get_Deferred_Reference_Count(Obj);
       Print_Result("5.4: Destroying local reference does not decrement if deferred", Count = 2);
 
-      -- Cleanup: Decrement twice to free the object
-      Decrement_Reference(Obj);
-      Decrement_Reference(Obj);
+      -- Cleanup
+      Free_Deferred_Object(Obj);
    end Test_Deferred_Increment;
 
    -- ========================================================================
@@ -236,7 +231,7 @@ procedure Tests is
       Count := Get_Pending_Updates_Count(Manager);
       Print_Result("6.4: Flushing updates clears pending list", Count = 0);
 
-      -- Cleanup: Flush_Updates may have modified Ref_Count, so decrement to free
+      -- Cleanup
       Decrement_Reference(Obj1);
       Decrement_Reference(Obj2);
       Free_Update_Manager(Manager);
@@ -309,8 +304,6 @@ procedure Tests is
       Print_Result("8.2: Scanning stack marks the object", In_Stack);
 
       -- 8.3: Assert that scanning stack prevents deallocation if Ref_Count = 0
-      -- Note: We cannot manually set Ref_Count to 0 because it's private.
-      -- Instead, we test that scanning the stack marks the object as in-stack.
       Scan_Stack_For_References(Obj);
       Print_Result("8.3: Scanning stack prevents deallocation if Ref_Count = 0", Is_In_Stack(Obj));
 
@@ -405,8 +398,6 @@ procedure Tests is
       Decrement_Reference(Obj);
       Decrement_Reference(Obj);
       Print_Result("11.3: Decrementing to zero deallocates object", Obj = null);
-
-      -- No need to call Free_Object here because Decrement_Reference already freed it
    end Test_Concurrent_Reference_Counting;
 
    -- ========================================================================
