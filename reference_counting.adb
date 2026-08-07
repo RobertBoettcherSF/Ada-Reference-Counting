@@ -21,6 +21,16 @@ package body Reference_Counting is
       Next_Object_ID := Next_Object_ID + 1;
       return Next_Object_ID - 1;
    end Generate_ID;
+   -- Helper function to compare two Object_Access by ID (avoids access type equality)
+   function Objects_Are_Equal (Obj1, Obj2 : Object_Access) return Boolean is
+   begin
+      if Obj1 = null or Obj2 = null then
+         return Obj1 = Obj2; -- Both null or one null
+      end if;
+      return Obj1.ID = Obj2.ID;
+   end Objects_Are_Equal;
+
+
 
    -- Free an object (used by Unchecked_Deallocation)
    procedure Free_Object_Internal is new Ada.Unchecked_Deallocation(Object, Object_Access);
@@ -331,7 +341,7 @@ package body Reference_Counting is
    -- Register a pointer update (coalesces redundant updates)
    -- Register a pointer update (coalesces redundant updates)
    -- Register a pointer update (coalesces redundant updates)
-   -- Register a pointer update (simplified to avoid access type comparisons)
+   -- Register a pointer update (checks for redundancy by ID)
    procedure Register_Update (
       Manager : in out Update_Manager_Access;
       Old_Obj, New_Obj : in out Object_Access) is
@@ -339,12 +349,27 @@ package body Reference_Counting is
       -- Use Update_Lists to make cursor operations visible
       use Update_Lists;
 
+      Use_It : Cursor := Manager.Pending_Updates.First;
    begin
       if Manager = null then
          raise Invalid_Reference with "Cannot register update with null manager";
       end if;
 
-      -- For simplicity, just append the update (skip redundancy check to avoid access type comparison)
+      -- Check for redundant updates by comparing IDs
+      while Use_It /= No_Element loop
+         declare
+            Current_Update : Update_Record := Element(Use_It);
+         begin
+            if (Objects_Are_Equal(Current_Update.Old_Obj, Old_Obj) and 
+                Objects_Are_Equal(Current_Update.New_Obj, New_Obj)) then
+               -- Skip redundant update
+               return;
+            end if;
+         end;
+         Next(Use_It);
+      end loop;
+
+      -- Add the new update
       Manager.Pending_Updates.Append((Old_Obj => Old_Obj, New_Obj => New_Obj));
    end Register_Update;
 
@@ -353,6 +378,7 @@ package body Reference_Counting is
 
 
 
+   -- Flush all coalesced updates
    -- Flush all coalesced updates
    -- Flush all coalesced updates
    procedure Flush_Updates (Manager : in out Update_Manager_Access) is
@@ -387,6 +413,7 @@ package body Reference_Counting is
       -- Clear the pending updates
       Manager.Pending_Updates.Clear;
    end Flush_Updates;
+
 
 
    -- Free an update manager (for testing/cleanup)
