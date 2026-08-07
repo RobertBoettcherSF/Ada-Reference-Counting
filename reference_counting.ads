@@ -158,6 +158,12 @@ package Reference_Counting is
    --  Update Coalescing (Levanoni & Petrank)
    -- ========================================================================
 
+   -- Update record type (must be defined before Update_Lists)
+   type Update_Record is record
+      Old_Obj : Object_Access;
+      New_Obj : Object_Access;
+   end record;
+
    -- Update coalescing manager type
    type Update_Manager;
    type Update_Manager_Access is access Update_Manager;
@@ -325,11 +331,7 @@ private
    --  Update Manager Implementation
    -- ========================================================================
 
-   type Update_Record is record
-      Old_Obj : Object_Access;
-      New_Obj : Object_Access;
-   end record;
-
+   -- Instantiate the generic list for Update_Record
    package Update_Lists is new Ada.Containers.Doubly_Linked_Lists(Update_Record);
 
    type Update_Manager is tagged limited record
@@ -369,6 +371,7 @@ private
    --  Cycle Detector Implementation
    -- ========================================================================
 
+   -- Instantiate the generic list for Object_Access
    package Object_Lists is new Ada.Containers.Doubly_Linked_Lists(Object_Access);
 
    type Cycle_Detector is tagged limited record

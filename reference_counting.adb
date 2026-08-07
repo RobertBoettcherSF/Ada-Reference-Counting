@@ -331,14 +331,20 @@ package body Reference_Counting is
       Manager : in out Update_Manager_Access;
       Old_Obj, New_Obj : in out Object_Access) is
 
+      -- Local type for the update record (matches Update_Record in .ads)
+      type Local_Update_Record is record
+         Old_Obj : Object_Access;
+         New_Obj : Object_Access;
+      end record;
+
       -- Check if the update is redundant (same old and new object)
-      function Is_Redundant (Update : Update_Lists.Update_Record) return Boolean is
+      function Is_Redundant (Update : Local_Update_Record) return Boolean is
       begin
          return (Update.Old_Obj = Old_Obj and Update.New_Obj = New_Obj);
       end Is_Redundant;
 
       -- Check if the update can be coalesced with an existing one
-      function Can_Coalesce (Update : Update_Lists.Update_Record) return Boolean is
+      function Can_Coalesce (Update : Local_Update_Record) return Boolean is
       begin
          return (Update.Old_Obj = Old_Obj or Update.New_Obj = New_Obj);
       end Can_Coalesce;
@@ -353,7 +359,7 @@ package body Reference_Counting is
       -- Check for redundant or coalescable updates
       while Use_It /= Update_Lists.No_Element loop
          declare
-            Current_Update : Update_Lists.Update_Record := Update_Lists.Element(Use_It);
+            Current_Update : Local_Update_Record := Update_Lists.Element(Use_It);
          begin
             if Is_Redundant(Current_Update) then
                -- Skip redundant update
@@ -369,7 +375,7 @@ package body Reference_Counting is
       end loop;
 
       -- Add the new update
-      Manager.Pending_Updates.Append((Old_Obj, New_Obj));
+      Manager.Pending_Updates.Append((Old_Obj => Old_Obj, New_Obj => New_Obj));
    end Register_Update;
 
    -- Flush all coalesced updates
@@ -383,7 +389,7 @@ package body Reference_Counting is
       -- Apply all pending updates
       while Use_It /= Update_Lists.No_Element loop
          declare
-            Current_Update : Update_Lists.Update_Record := Update_Lists.Element(Use_It);
+            Current_Update : Update_Record := Update_Lists.Element(Use_It);
          begin
             -- Decrement the old object's reference count
             if Current_Update.Old_Obj /= null then
