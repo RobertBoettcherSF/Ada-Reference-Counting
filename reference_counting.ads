@@ -12,7 +12,6 @@
 -- ============================================================================
 
 with Ada.Containers.Doubly_Linked_Lists;
-with Ada.Finalization;
 
 package Reference_Counting is
 
@@ -69,6 +68,9 @@ package Reference_Counting is
    -- Function to create a new object with a reference count of 1
    function Create_Object return Object_Access;
 
+   -- Procedure to free an object (for testing/cleanup)
+   procedure Free_Object (Obj : in out Object_Access);
+
    -- ========================================================================
    --  Weighted Reference Counting
    -- ========================================================================
@@ -91,6 +93,9 @@ package Reference_Counting is
    -- Function to create a new weighted object with initial weight
    function Create_Weighted_Object (Initial_Weight : Weight) return Weighted_Object_Access;
 
+   -- Procedure to free a weighted object (for testing/cleanup)
+   procedure Free_Weighted_Object (Obj : in out Weighted_Object_Access);
+
    -- ========================================================================
    --  Indirect Reference Counting (Dijkstra-Scholten)
    -- ========================================================================
@@ -100,6 +105,9 @@ package Reference_Counting is
    type Indirect_Object_Access is access Indirect_Object;
 
    type Indirect_Object is tagged limited private;
+
+   -- Function to get the reference count of an indirect object (for testing)
+   function Get_Indirect_Reference_Count (Obj : Indirect_Object_Access) return Reference_Count;
 
    -- Procedure to add an indirect reference
    procedure Add_Indirect_Reference (
@@ -112,6 +120,9 @@ package Reference_Counting is
    -- Function to create a new indirect object
    function Create_Indirect_Object return Indirect_Object_Access;
 
+   -- Procedure to free an indirect object (for testing/cleanup)
+   procedure Free_Indirect_Object (Obj : in out Indirect_Object_Access);
+
    -- ========================================================================
    --  Deferred Increment (Henry Baker)
    -- ========================================================================
@@ -121,6 +132,12 @@ package Reference_Counting is
    type Deferred_Object_Access is access Deferred_Object;
 
    type Deferred_Object is tagged limited private;
+
+   -- Function to get the reference count of a deferred object (for testing)
+   function Get_Deferred_Reference_Count (Obj : Deferred_Object_Access) return Reference_Count;
+
+   -- Function to check if increment is deferred (for testing)
+   function Is_Deferred_Incr (Obj : Deferred_Object_Access) return Boolean;
 
    -- Procedure to create a local reference (deferred increment)
    procedure Create_Local_Reference (Obj : in out Deferred_Object_Access);
@@ -134,6 +151,9 @@ package Reference_Counting is
    -- Function to create a new deferred object
    function Create_Deferred_Object return Deferred_Object_Access;
 
+   -- Procedure to free a deferred object (for testing/cleanup)
+   procedure Free_Deferred_Object (Obj : in out Deferred_Object_Access);
+
    -- ========================================================================
    --  Update Coalescing (Levanoni & Petrank)
    -- ========================================================================
@@ -143,6 +163,9 @@ package Reference_Counting is
    type Update_Manager_Access is access Update_Manager;
 
    type Update_Manager is tagged limited private;
+
+   -- Function to get the number of pending updates (for testing)
+   function Get_Pending_Updates_Count (Manager : Update_Manager_Access) return Natural;
 
    -- Procedure to register a pointer update (coalesces redundant updates)
    procedure Register_Update (
@@ -154,6 +177,9 @@ package Reference_Counting is
 
    -- Function to create a new update manager
    function Create_Update_Manager return Update_Manager_Access;
+
+   -- Procedure to free an update manager (for testing/cleanup)
+   procedure Free_Update_Manager (Manager : in out Update_Manager_Access);
 
    -- ========================================================================
    --  Cycle Handling (Weak References)
@@ -178,6 +204,9 @@ package Reference_Counting is
       Weak_Ref : Weak_Reference_Access;
       Target : out Object_Access);
 
+   -- Procedure to free a weak reference (for testing/cleanup)
+   procedure Free_Weak_Reference (Weak_Ref : in out Weak_Reference_Access);
+
    -- ========================================================================
    --  Deutsch-Bobrow Method
    -- ========================================================================
@@ -188,11 +217,20 @@ package Reference_Counting is
 
    type DB_Object is tagged limited private;
 
+   -- Function to check if the object is in the stack (for testing)
+   function Is_In_Stack (Obj : DB_Object_Access) return Boolean;
+
+   -- Function to get the reference count of a DB object (for testing)
+   function Get_DB_Reference_Count (Obj : DB_Object_Access) return Reference_Count;
+
    -- Procedure to scan stack/registers for references (simulated)
    procedure Scan_Stack_For_References (Obj : in out DB_Object_Access);
 
    -- Function to create a new Deutsch-Bobrow object
    function Create_DB_Object return DB_Object_Access;
+
+   -- Procedure to free a DB object (for testing/cleanup)
+   procedure Free_DB_Object (Obj : in out DB_Object_Access);
 
    -- ========================================================================
    --  Ulterior Reference Counting (Blackburn & McKinley)
@@ -204,11 +242,20 @@ package Reference_Counting is
 
    type Ulterior_Object is tagged limited private;
 
+   -- Function to check if the object is young (for testing)
+   function Is_Young (Obj : Ulterior_Object_Access) return Boolean;
+
+   -- Function to get the reference count of an ulterior object (for testing)
+   function Get_Ulterior_Reference_Count (Obj : Ulterior_Object_Access) return Reference_Count;
+
    -- Procedure to perform a copying collection (simulated)
    procedure Copying_Collection (Obj : in out Ulterior_Object_Access);
 
    -- Function to create a new ulterior object
    function Create_Ulterior_Object return Ulterior_Object_Access;
+
+   -- Procedure to free an ulterior object (for testing/cleanup)
+   procedure Free_Ulterior_Object (Obj : in out Ulterior_Object_Access);
 
    -- ========================================================================
    --  Cycle Detection (Bacon's Algorithm)
@@ -220,6 +267,9 @@ package Reference_Counting is
 
    type Cycle_Detector is tagged limited private;
 
+   -- Function to get the number of roots (for testing)
+   function Get_Roots_Count (Detector : Cycle_Detector_Access) return Natural;
+
    -- Procedure to add an object to the roots list (for cycle detection)
    procedure Add_To_Roots (Detector : in out Cycle_Detector_Access; Obj : Object_Access);
 
@@ -228,6 +278,9 @@ package Reference_Counting is
 
    -- Function to create a new cycle detector
    function Create_Cycle_Detector return Cycle_Detector_Access;
+
+   -- Procedure to free a cycle detector (for testing/cleanup)
+   procedure Free_Cycle_Detector (Detector : in out Cycle_Detector_Access);
 
 private
 
@@ -238,7 +291,6 @@ private
    type Object is tagged limited record
       ID          : Object_ID;
       Ref_Count   : Reference_Count;
-      Next_ID     : Object_ID := 1; -- Static counter for unique IDs
    end record;
 
    -- ========================================================================
@@ -257,7 +309,6 @@ private
    type Indirect_Object is tagged limited record
       ID               : Object_ID;
       Ref_Count        : Reference_Count;
-      Indirect_Refs    : Ada.Containers.Doubly_Linked_Lists.List;
    end record;
 
    -- ========================================================================
@@ -280,7 +331,6 @@ private
    end record;
 
    package Update_Lists is new Ada.Containers.Doubly_Linked_Lists(Update_Record);
-   use Update_Lists;
 
    type Update_Manager is tagged limited record
       Pending_Updates : Update_Lists.List;
@@ -320,7 +370,6 @@ private
    -- ========================================================================
 
    package Object_Lists is new Ada.Containers.Doubly_Linked_Lists(Object_Access);
-   use Object_Lists;
 
    type Cycle_Detector is tagged limited record
       Roots       : Object_Lists.List;

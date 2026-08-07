@@ -1,11 +1,10 @@
 -- ============================================================================
 --  Reference Counting Test Suite
---  13+ terminal-executable tests that assume the code is broken.
+--  15+ terminal-executable tests that assume the code is broken.
 --  Tests PASS when they disprove this assumption (code works correctly).
 -- ============================================================================
 
 with Ada.Text_IO;
-with Ada.Assertions;
 with Reference_Counting;
 
 procedure Tests is
@@ -13,7 +12,6 @@ procedure Tests is
    -- Shorthand for reference counting types
    use Reference_Counting;
    use Ada.Text_IO;
-   use Ada.Assertions;
 
    -- ========================================================================
    --  Helper Procedures
@@ -59,9 +57,7 @@ procedure Tests is
       Print_Result("1.4: Decrementing to zero deallocates object", Obj1 = null);
 
       -- Cleanup
-      if Obj1 /= null then
-         Decrement_Reference(Obj1);
-      end if;
+      Free_Object(Obj1);
    end Test_Basic_Reference_Counting;
 
    -- ========================================================================
@@ -134,6 +130,9 @@ procedure Tests is
       -- 3.4: Assert that merging to zero deallocates the object
       Merge_Weight(Obj, Weight1 / 4.0);
       Print_Result("3.4: Merging to zero deallocates object", Obj = null);
+
+      -- Cleanup
+      Free_Weighted_Object(Obj);
    end Test_Weighted_Reference_Counting;
 
    -- ========================================================================
@@ -149,17 +148,17 @@ procedure Tests is
       -- 4.1: Assert that a new indirect object has reference count 1
       Source := Create_Indirect_Object;
       Target := Create_Indirect_Object;
-      Count := Source.Ref_Count;
+      Count := Get_Indirect_Reference_Count(Source);
       Print_Result("4.1: New indirect object has reference count 1", Count = 1);
 
       -- 4.2: Assert that adding an indirect reference increases the target's count
       Add_Indirect_Reference(Source, Target);
-      Count := Target.Ref_Count;
+      Count := Get_Indirect_Reference_Count(Target);
       Print_Result("4.2: Adding indirect reference increases target's count", Count = 2);
 
       -- 4.3: Assert that removing an indirect reference decreases the target's count
       Remove_Indirect_Reference(Source, Target);
-      Count := Target.Ref_Count;
+      Count := Get_Indirect_Reference_Count(Target);
       Print_Result("4.3: Removing indirect reference decreases target's count", Count = 1);
 
       -- 4.4: Assert that removing the last reference deallocates the target
@@ -167,9 +166,7 @@ procedure Tests is
       Print_Result("4.4: Removing last reference deallocates target", Target = null);
 
       -- Cleanup
-      if Source /= null then
-         Free_Indirect_Object(Source);
-      end if;
+      Free_Indirect_Object(Source);
    end Test_Indirect_Reference_Counting;
 
    -- ========================================================================
@@ -178,25 +175,31 @@ procedure Tests is
 
    procedure Test_Deferred_Increment is
       Obj : Deferred_Object_Access;
+      Count : Reference_Count;
+      Deferred : Boolean;
    begin
       Put_Line("TEST 5 - Deferred Increment (Henry Baker)");
 
       -- 5.1: Assert that a new deferred object has reference count 1
       Obj := Create_Deferred_Object;
-      Print_Result("5.1: New deferred object has reference count 1", Obj.Ref_Count = 1);
+      Count := Get_Deferred_Reference_Count(Obj);
+      Print_Result("5.1: New deferred object has reference count 1", Count = 1);
 
       -- 5.2: Assert that creating a local reference defers increment
       Create_Local_Reference(Obj);
-      Print_Result("5.2: Creating local reference defers increment", Obj.Deferred_Incr);
+      Deferred := Is_Deferred_Incr(Obj);
+      Print_Result("5.2: Creating local reference defers increment", Deferred);
 
       -- 5.3: Assert that promoting to global performs the increment
       Promote_To_Global(Obj);
-      Print_Result("5.3: Promoting to global performs increment", Obj.Ref_Count = 2);
+      Count := Get_Deferred_Reference_Count(Obj);
+      Print_Result("5.3: Promoting to global performs increment", Count = 2);
 
       -- 5.4: Assert that destroying a local reference does not decrement if deferred
       Create_Local_Reference(Obj);
       Destroy_Local_Reference(Obj);
-      Print_Result("5.4: Destroying local reference does not decrement if deferred", Obj.Ref_Count = 2);
+      Count := Get_Deferred_Reference_Count(Obj);
+      Print_Result("5.4: Destroying local reference does not decrement if deferred", Count = 2);
 
       -- Cleanup
       Free_Deferred_Object(Obj);
@@ -209,6 +212,7 @@ procedure Tests is
    procedure Test_Update_Coalescing is
       Manager : Update_Manager_Access;
       Obj1, Obj2, Obj3 : Object_Access;
+      Count : Natural;
    begin
       Put_Line("TEST 6 - Update Coalescing (Levanoni & Petrank)");
 
@@ -220,15 +224,18 @@ procedure Tests is
       Obj1 := Create_Object;
       Obj2 := Create_Object;
       Register_Update(Manager, Obj1, Obj2);
-      Print_Result("6.2: Registering update adds it to pending list", Manager.Pending_Updates.Length = 1);
+      Count := Get_Pending_Updates_Count(Manager);
+      Print_Result("6.2: Registering update adds it to pending list", Count = 1);
 
       -- 6.3: Assert that registering a redundant update does not duplicate it
       Register_Update(Manager, Obj1, Obj2);
-      Print_Result("6.3: Registering redundant update does not duplicate it", Manager.Pending_Updates.Length = 1);
+      Count := Get_Pending_Updates_Count(Manager);
+      Print_Result("6.3: Registering redundant update does not duplicate it", Count = 1);
 
       -- 6.4: Assert that flushing updates clears the pending list
       Flush_Updates(Manager);
-      Print_Result("6.4: Flushing updates clears pending list", Manager.Pending_Updates.Length = 0);
+      Count := Get_Pending_Updates_Count(Manager);
+      Print_Result("6.4: Flushing updates clears pending list", Count = 0);
 
       -- Cleanup
       Free_Object(Obj1);
@@ -289,6 +296,8 @@ procedure Tests is
 
    procedure Test_Deutsch_Bobrow is
       Obj : DB_Object_Access;
+      In_Stack : Boolean;
+      Count : Reference_Count;
    begin
       Put_Line("TEST 8 - Deutsch-Bobrow Method");
 
@@ -298,12 +307,18 @@ procedure Tests is
 
       -- 8.2: Assert that scanning stack for references marks the object
       Scan_Stack_For_References(Obj);
-      Print_Result("8.2: Scanning stack marks the object", Obj.In_Stack);
+      In_Stack := Is_In_Stack(Obj);
+      Print_Result("8.2: Scanning stack marks the object", In_Stack);
 
       -- 8.3: Assert that scanning stack prevents deallocation if Ref_Count = 0
-      Obj.Ref_Count := 0;
+      Count := Get_DB_Reference_Count(Obj);
+      if Count > 0 then
+         -- Manually set Ref_Count to 0 for testing
+         Obj.Ref_Count := 0;
+      end if;
       Scan_Stack_For_References(Obj);
-      Print_Result("8.3: Scanning stack prevents deallocation if Ref_Count = 0", Obj.Ref_Count = 1);
+      Count := Get_DB_Reference_Count(Obj);
+      Print_Result("8.3: Scanning stack prevents deallocation if Ref_Count = 0", Count = 1);
 
       -- Cleanup
       Free_DB_Object(Obj);
@@ -315,6 +330,7 @@ procedure Tests is
 
    procedure Test_Ulterior_Reference_Counting is
       Obj : Ulterior_Object_Access;
+      Is_Young : Boolean;
    begin
       Put_Line("TEST 9 - Ulterior Reference Counting");
 
@@ -323,11 +339,13 @@ procedure Tests is
       Print_Result("9.1: New ulterior object is created", Obj /= null);
 
       -- 9.2: Assert that a new object is in the young generation
-      Print_Result("9.2: New object is in young generation", Obj.Is_Young);
+      Is_Young := Is_Young(Obj);
+      Print_Result("9.2: New object is in young generation", Is_Young);
 
       -- 9.3: Assert that copying collection moves the object to old generation
       Copying_Collection(Obj);
-      Print_Result("9.3: Copying collection moves object to old generation", not Obj.Is_Young);
+      Is_Young := Is_Young(Obj);
+      Print_Result("9.3: Copying collection moves object to old generation", not Is_Young);
 
       -- Cleanup
       Free_Ulterior_Object(Obj);
@@ -340,6 +358,7 @@ procedure Tests is
    procedure Test_Cycle_Detection is
       Detector : Cycle_Detector_Access;
       Obj1, Obj2 : Object_Access;
+      Count : Natural;
    begin
       Put_Line("TEST 10 - Cycle Detection (Bacon's Algorithm)");
 
@@ -350,16 +369,19 @@ procedure Tests is
       -- 10.2: Assert that adding an object to roots works
       Obj1 := Create_Object;
       Add_To_Roots(Detector, Obj1);
-      Print_Result("10.2: Adding object to roots works", Detector.Roots.Length = 1);
+      Count := Get_Roots_Count(Detector);
+      Print_Result("10.2: Adding object to roots works", Count = 1);
 
       -- 10.3: Assert that adding multiple objects to roots works
       Obj2 := Create_Object;
       Add_To_Roots(Detector, Obj2);
-      Print_Result("10.3: Adding multiple objects to roots works", Detector.Roots.Length = 2);
+      Count := Get_Roots_Count(Detector);
+      Print_Result("10.3: Adding multiple objects to roots works", Count = 2);
 
       -- 10.4: Assert that detecting cycles clears the roots list
       Detect_Cycles(Detector);
-      Print_Result("10.4: Detecting cycles clears roots list", Detector.Roots.Length = 0);
+      Count := Get_Roots_Count(Detector);
+      Print_Result("10.4: Detecting cycles clears roots list", Count = 0);
 
       -- Cleanup
       Free_Object(Obj1);
@@ -373,6 +395,7 @@ procedure Tests is
 
    procedure Test_Concurrent_Reference_Counting is
       Obj : Object_Access;
+      Count : Reference_Count;
    begin
       Put_Line("TEST 11 - Concurrent Reference Counting (Atomicity)");
 
@@ -384,12 +407,16 @@ procedure Tests is
       Increment_Reference(Obj);
       Increment_Reference(Obj);
       Decrement_Reference(Obj);
-      Print_Result("11.2: Incrementing and decrementing in sequence works", Obj.Ref_Count = 2);
+      Count := Get_Reference_Count(Obj);
+      Print_Result("11.2: Incrementing and decrementing in sequence works", Count = 2);
 
       -- 11.3: Assert that decrementing to zero deallocates the object
       Decrement_Reference(Obj);
       Decrement_Reference(Obj);
       Print_Result("11.3: Decrementing to zero deallocates object", Obj = null);
+
+      -- Cleanup
+      Free_Object(Obj);
    end Test_Concurrent_Reference_Counting;
 
    -- ========================================================================
@@ -414,9 +441,7 @@ procedure Tests is
       Print_Result("12.3: Creating weighted object with max weight works", Obj /= null);
 
       -- Cleanup
-      if Obj /= null then
-         Free_Weighted_Object(Obj);
-      end if;
+      Free_Weighted_Object(Obj);
    end Test_Weighted_Edge_Cases;
 
    -- ========================================================================
@@ -458,12 +483,8 @@ procedure Tests is
       end;
 
       -- Cleanup
-      if Source /= null then
-         Free_Indirect_Object(Source);
-      end if;
-      if Target /= null then
-         Free_Indirect_Object(Target);
-      end if;
+      Free_Indirect_Object(Source);
+      Free_Indirect_Object(Target);
    end Test_Indirect_Edge_Cases;
 
    -- ========================================================================

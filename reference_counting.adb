@@ -4,7 +4,6 @@
 -- ============================================================================
 
 with Ada.Text_IO;
-with Ada.Containers.Doubly_Linked_Lists;
 with Ada.Unchecked_Deallocation;
 
 package body Reference_Counting is
@@ -24,22 +23,22 @@ package body Reference_Counting is
    end Generate_ID;
 
    -- Free an object (used by Unchecked_Deallocation)
-   procedure Free_Object is new Ada.Unchecked_Deallocation(Object, Object_Access);
-   procedure Free_Weighted_Object is new Ada.Unchecked_Deallocation(
+   procedure Free_Object_Internal is new Ada.Unchecked_Deallocation(Object, Object_Access);
+   procedure Free_Weighted_Object_Internal is new Ada.Unchecked_Deallocation(
       Weighted_Object, Weighted_Object_Access);
-   procedure Free_Indirect_Object is new Ada.Unchecked_Deallocation(
+   procedure Free_Indirect_Object_Internal is new Ada.Unchecked_Deallocation(
       Indirect_Object, Indirect_Object_Access);
-   procedure Free_Deferred_Object is new Ada.Unchecked_Deallocation(
+   procedure Free_Deferred_Object_Internal is new Ada.Unchecked_Deallocation(
       Deferred_Object, Deferred_Object_Access);
-   procedure Free_Update_Manager is new Ada.Unchecked_Deallocation(
+   procedure Free_Update_Manager_Internal is new Ada.Unchecked_Deallocation(
       Update_Manager, Update_Manager_Access);
-   procedure Free_Weak_Reference is new Ada.Unchecked_Deallocation(
+   procedure Free_Weak_Reference_Internal is new Ada.Unchecked_Deallocation(
       Weak_Reference, Weak_Reference_Access);
-   procedure Free_DB_Object is new Ada.Unchecked_Deallocation(
+   procedure Free_DB_Object_Internal is new Ada.Unchecked_Deallocation(
       DB_Object, DB_Object_Access);
-   procedure Free_Ulterior_Object is new Ada.Unchecked_Deallocation(
+   procedure Free_Ulterior_Object_Internal is new Ada.Unchecked_Deallocation(
       Ulterior_Object, Ulterior_Object_Access);
-   procedure Free_Cycle_Detector is new Ada.Unchecked_Deallocation(
+   procedure Free_Cycle_Detector_Internal is new Ada.Unchecked_Deallocation(
       Cycle_Detector, Cycle_Detector_Access);
 
    -- ========================================================================
@@ -77,7 +76,7 @@ package body Reference_Counting is
 
       -- If the count reaches zero, deallocate the object
       if Obj.Ref_Count = 0 then
-         Free_Object(Obj);
+         Free_Object_Internal(Obj);
          Obj := null; -- Avoid dangling pointer
       end if;
    end Decrement_Reference;
@@ -90,6 +89,15 @@ package body Reference_Counting is
       end if;
       return Obj.Ref_Count;
    end Get_Reference_Count;
+
+   -- Free an object (for testing/cleanup)
+   procedure Free_Object (Obj : in out Object_Access) is
+   begin
+      if Obj /= null then
+         Free_Object_Internal(Obj);
+         Obj := null;
+      end if;
+   end Free_Object;
 
    -- ========================================================================
    --  Weighted Reference Counting Implementation
@@ -127,7 +135,7 @@ package body Reference_Counting is
 
       -- If total weight reaches zero, deallocate the object
       if Obj.Total_Weight <= 0.0 then
-         Free_Weighted_Object(Obj);
+         Free_Weighted_Object_Internal(Obj);
          Obj := null;
       end if;
    end Merge_Weight;
@@ -140,6 +148,15 @@ package body Reference_Counting is
       end if;
       return Obj.Total_Weight;
    end Get_Total_Weight;
+
+   -- Free a weighted object (for testing/cleanup)
+   procedure Free_Weighted_Object (Obj : in out Weighted_Object_Access) is
+   begin
+      if Obj /= null then
+         Free_Weighted_Object_Internal(Obj);
+         Obj := null;
+      end if;
+   end Free_Weighted_Object;
 
    -- ========================================================================
    --  Indirect Reference Counting (Dijkstra-Scholten) Implementation
@@ -154,6 +171,15 @@ package body Reference_Counting is
       return Obj;
    end Create_Indirect_Object;
 
+   -- Get the reference count of an indirect object (for testing)
+   function Get_Indirect_Reference_Count (Obj : Indirect_Object_Access) return Reference_Count is
+   begin
+      if Obj = null then
+         raise Invalid_Reference with "Cannot get reference count of null indirect object";
+      end if;
+      return Obj.Ref_Count;
+   end Get_Indirect_Reference_Count;
+
    -- Add an indirect reference (for diffusion tree)
    procedure Add_Indirect_Reference (
       Source, Target : in out Indirect_Object_Access) is
@@ -164,9 +190,6 @@ package body Reference_Counting is
 
       -- Increment the target's reference count (simulates diffusion tree)
       Target.Ref_Count := Target.Ref_Count + 1;
-
-      -- Note: In a full implementation, we would track the source of the reference
-      -- For simplicity, we just increment the count here
    end Add_Indirect_Reference;
 
    -- Remove an indirect reference
@@ -182,10 +205,19 @@ package body Reference_Counting is
 
       -- If the count reaches zero, deallocate the target
       if Target.Ref_Count = 0 then
-         Free_Indirect_Object(Target);
+         Free_Indirect_Object_Internal(Target);
          Target := null;
       end if;
    end Remove_Indirect_Reference;
+
+   -- Free an indirect object (for testing/cleanup)
+   procedure Free_Indirect_Object (Obj : in out Indirect_Object_Access) is
+   begin
+      if Obj /= null then
+         Free_Indirect_Object_Internal(Obj);
+         Obj := null;
+      end if;
+   end Free_Indirect_Object;
 
    -- ========================================================================
    --  Deferred Increment (Henry Baker) Implementation
@@ -200,6 +232,24 @@ package body Reference_Counting is
       Obj.Deferred_Incr := False;
       return Obj;
    end Create_Deferred_Object;
+
+   -- Get the reference count of a deferred object (for testing)
+   function Get_Deferred_Reference_Count (Obj : Deferred_Object_Access) return Reference_Count is
+   begin
+      if Obj = null then
+         raise Invalid_Reference with "Cannot get reference count of null deferred object";
+      end if;
+      return Obj.Ref_Count;
+   end Get_Deferred_Reference_Count;
+
+   -- Check if increment is deferred (for testing)
+   function Is_Deferred_Incr (Obj : Deferred_Object_Access) return Boolean is
+   begin
+      if Obj = null then
+         raise Invalid_Reference with "Cannot check deferred increment of null object";
+      end if;
+      return Obj.Deferred_Incr;
+   end Is_Deferred_Incr;
 
    -- Create a local reference (deferred increment)
    procedure Create_Local_Reference (Obj : in out Deferred_Object_Access) is
@@ -227,7 +277,7 @@ package body Reference_Counting is
          -- Otherwise, decrement normally
          Obj.Ref_Count := Obj.Ref_Count - 1;
          if Obj.Ref_Count = 0 then
-            Free_Deferred_Object(Obj);
+            Free_Deferred_Object_Internal(Obj);
             Obj := null;
          end if;
       end if;
@@ -247,6 +297,15 @@ package body Reference_Counting is
       end if;
    end Promote_To_Global;
 
+   -- Free a deferred object (for testing/cleanup)
+   procedure Free_Deferred_Object (Obj : in out Deferred_Object_Access) is
+   begin
+      if Obj /= null then
+         Free_Deferred_Object_Internal(Obj);
+         Obj := null;
+      end if;
+   end Free_Deferred_Object;
+
    -- ========================================================================
    --  Update Coalescing (Levanoni & Petrank) Implementation
    -- ========================================================================
@@ -258,19 +317,28 @@ package body Reference_Counting is
       return Manager;
    end Create_Update_Manager;
 
+   -- Get the number of pending updates (for testing)
+   function Get_Pending_Updates_Count (Manager : Update_Manager_Access) return Natural is
+   begin
+      if Manager = null then
+         raise Invalid_Reference with "Cannot get pending updates count of null manager";
+      end if;
+      return Natural(Manager.Pending_Updates.Length);
+   end Get_Pending_Updates_Count;
+
    -- Register a pointer update (coalesces redundant updates)
    procedure Register_Update (
       Manager : in out Update_Manager_Access;
       Old_Obj, New_Obj : in out Object_Access) is
 
       -- Check if the update is redundant (same old and new object)
-      function Is_Redundant (Update : Update_Record) return Boolean is
+      function Is_Redundant (Update : Update_Lists.Update_Record) return Boolean is
       begin
          return (Update.Old_Obj = Old_Obj and Update.New_Obj = New_Obj);
       end Is_Redundant;
 
       -- Check if the update can be coalesced with an existing one
-      function Can_Coalesce (Update : Update_Record) return Boolean is
+      function Can_Coalesce (Update : Update_Lists.Update_Record) return Boolean is
       begin
          return (Update.Old_Obj = Old_Obj or Update.New_Obj = New_Obj);
       end Can_Coalesce;
@@ -285,7 +353,7 @@ package body Reference_Counting is
       -- Check for redundant or coalescable updates
       while Use_It /= Update_Lists.No_Element loop
          declare
-            Current_Update : Update_Record := Update_Lists.Element(Use_It);
+            Current_Update : Update_Lists.Update_Record := Update_Lists.Element(Use_It);
          begin
             if Is_Redundant(Current_Update) then
                -- Skip redundant update
@@ -315,13 +383,13 @@ package body Reference_Counting is
       -- Apply all pending updates
       while Use_It /= Update_Lists.No_Element loop
          declare
-            Current_Update : Update_Record := Update_Lists.Element(Use_It);
+            Current_Update : Update_Lists.Update_Record := Update_Lists.Element(Use_It);
          begin
             -- Decrement the old object's reference count
             if Current_Update.Old_Obj /= null then
                Current_Update.Old_Obj.Ref_Count := Current_Update.Old_Obj.Ref_Count - 1;
                if Current_Update.Old_Obj.Ref_Count = 0 then
-                  Free_Object(Current_Update.Old_Obj);
+                  Free_Object_Internal(Current_Update.Old_Obj);
                end if;
             end if;
 
@@ -336,6 +404,15 @@ package body Reference_Counting is
       -- Clear the pending updates
       Manager.Pending_Updates.Clear;
    end Flush_Updates;
+
+   -- Free an update manager (for testing/cleanup)
+   procedure Free_Update_Manager (Manager : in out Update_Manager_Access) is
+   begin
+      if Manager /= null then
+         Free_Update_Manager_Internal(Manager);
+         Manager := null;
+      end if;
+   end Free_Update_Manager;
 
    -- ========================================================================
    --  Cycle Handling (Weak References) Implementation
@@ -382,6 +459,15 @@ package body Reference_Counting is
       Target := null;
    end Get_Weak_Target;
 
+   -- Free a weak reference (for testing/cleanup)
+   procedure Free_Weak_Reference (Weak_Ref : in out Weak_Reference_Access) is
+   begin
+      if Weak_Ref /= null then
+         Free_Weak_Reference_Internal(Weak_Ref);
+         Weak_Ref := null;
+      end if;
+   end Free_Weak_Reference;
+
    -- ========================================================================
    --  Deutsch-Bobrow Method Implementation
    -- ========================================================================
@@ -395,6 +481,24 @@ package body Reference_Counting is
       Obj.In_Stack := False;
       return Obj;
    end Create_DB_Object;
+
+   -- Check if the object is in the stack (for testing)
+   function Is_In_Stack (Obj : DB_Object_Access) return Boolean is
+   begin
+      if Obj = null then
+         raise Invalid_Reference with "Cannot check stack status of null object";
+      end if;
+      return Obj.In_Stack;
+   end Is_In_Stack;
+
+   -- Get the reference count of a DB object (for testing)
+   function Get_DB_Reference_Count (Obj : DB_Object_Access) return Reference_Count is
+   begin
+      if Obj = null then
+         raise Invalid_Reference with "Cannot get reference count of null DB object";
+      end if;
+      return Obj.Ref_Count;
+   end Get_DB_Reference_Count;
 
    -- Scan stack/registers for references (simulated)
    procedure Scan_Stack_For_References (Obj : in out DB_Object_Access) is
@@ -413,6 +517,15 @@ package body Reference_Counting is
       end if;
    end Scan_Stack_For_References;
 
+   -- Free a DB object (for testing/cleanup)
+   procedure Free_DB_Object (Obj : in out DB_Object_Access) is
+   begin
+      if Obj /= null then
+         Free_DB_Object_Internal(Obj);
+         Obj := null;
+      end if;
+   end Free_DB_Object;
+
    -- ========================================================================
    --  Ulterior Reference Counting (Blackburn & McKinley) Implementation
    -- ========================================================================
@@ -426,6 +539,24 @@ package body Reference_Counting is
       Obj.Is_Young := True;
       return Obj;
    end Create_Ulterior_Object;
+
+   -- Check if the object is young (for testing)
+   function Is_Young (Obj : Ulterior_Object_Access) return Boolean is
+   begin
+      if Obj = null then
+         raise Invalid_Reference with "Cannot check youth status of null object";
+      end if;
+      return Obj.Is_Young;
+   end Is_Young;
+
+   -- Get the reference count of an ulterior object (for testing)
+   function Get_Ulterior_Reference_Count (Obj : Ulterior_Object_Access) return Reference_Count is
+   begin
+      if Obj = null then
+         raise Invalid_Reference with "Cannot get reference count of null ulterior object";
+      end if;
+      return Obj.Ref_Count;
+   end Get_Ulterior_Reference_Count;
 
    -- Perform a copying collection (simulated)
    procedure Copying_Collection (Obj : in out Ulterior_Object_Access) is
@@ -441,6 +572,15 @@ package body Reference_Counting is
       end if;
    end Copying_Collection;
 
+   -- Free an ulterior object (for testing/cleanup)
+   procedure Free_Ulterior_Object (Obj : in out Ulterior_Object_Access) is
+   begin
+      if Obj /= null then
+         Free_Ulterior_Object_Internal(Obj);
+         Obj := null;
+      end if;
+   end Free_Ulterior_Object;
+
    -- ========================================================================
    --  Cycle Detection (Bacon's Algorithm) Implementation
    -- ========================================================================
@@ -451,6 +591,15 @@ package body Reference_Counting is
    begin
       return Detector;
    end Create_Cycle_Detector;
+
+   -- Get the number of roots (for testing)
+   function Get_Roots_Count (Detector : Cycle_Detector_Access) return Natural is
+   begin
+      if Detector = null then
+         raise Invalid_Reference with "Cannot get roots count of null detector";
+      end if;
+      return Natural(Detector.Roots.Length);
+   end Get_Roots_Count;
 
    -- Add an object to the roots list (for cycle detection)
    procedure Add_To_Roots (Detector : in out Cycle_Detector_Access; Obj : Object_Access) is
@@ -491,5 +640,14 @@ package body Reference_Counting is
       -- Clear the roots list after detection
       Detector.Roots.Clear;
    end Detect_Cycles;
+
+   -- Free a cycle detector (for testing/cleanup)
+   procedure Free_Cycle_Detector (Detector : in out Cycle_Detector_Access) is
+   begin
+      if Detector /= null then
+         Free_Cycle_Detector_Internal(Detector);
+         Detector := null;
+      end if;
+   end Free_Cycle_Detector;
 
 end Reference_Counting;
