@@ -1,7 +1,7 @@
--- ============================================================================
---  Makefile for Reference Counting Project
---  Compiles and runs the reference counting package and tests.
--- ============================================================================
+# ============================================================================
+#  Makefile for Reference Counting Project
+#  Compiles and runs the reference counting package and tests.
+# ============================================================================
 
 .PHONY: all test clean
 
