@@ -56,8 +56,7 @@ procedure Tests is
       Decrement_Reference(Obj1);
       Print_Result("1.4: Decrementing to zero deallocates object", Obj1 = null);
 
-      -- Cleanup
-      Free_Object(Obj1);
+      -- No need to call Free_Object here because Decrement_Reference already freed it
    end Test_Basic_Reference_Counting;
 
    -- ========================================================================
@@ -131,8 +130,7 @@ procedure Tests is
       Merge_Weight(Obj, Weight1 / 4.0);
       Print_Result("3.4: Merging to zero deallocates object", Obj = null);
 
-      -- Cleanup
-      Free_Weighted_Object(Obj);
+      -- No need to call Free_Weighted_Object here because Merge_Weight already freed it
    end Test_Weighted_Reference_Counting;
 
    -- ========================================================================
@@ -165,7 +163,7 @@ procedure Tests is
       Remove_Indirect_Reference(Source, Target);
       Print_Result("4.4: Removing last reference deallocates target", Target = null);
 
-      -- Cleanup
+      -- Cleanup Source (Target was already freed by Remove_Indirect_Reference)
       Free_Indirect_Object(Source);
    end Test_Indirect_Reference_Counting;
 
@@ -201,8 +199,9 @@ procedure Tests is
       Count := Get_Deferred_Reference_Count(Obj);
       Print_Result("5.4: Destroying local reference does not decrement if deferred", Count = 2);
 
-      -- Cleanup
-      Free_Deferred_Object(Obj);
+      -- Cleanup: Decrement twice to free the object
+      Decrement_Reference(Obj);
+      Decrement_Reference(Obj);
    end Test_Deferred_Increment;
 
    -- ========================================================================
@@ -237,9 +236,9 @@ procedure Tests is
       Count := Get_Pending_Updates_Count(Manager);
       Print_Result("6.4: Flushing updates clears pending list", Count = 0);
 
-      -- Cleanup
-      Free_Object(Obj1);
-      Free_Object(Obj2);
+      -- Cleanup: Flush_Updates may have modified Ref_Count, so decrement to free
+      Decrement_Reference(Obj1);
+      Decrement_Reference(Obj2);
       Free_Update_Manager(Manager);
    end Test_Update_Coalescing;
 
@@ -286,7 +285,7 @@ procedure Tests is
       end;
 
       -- Cleanup
-      Free_Object(Target);
+      Decrement_Reference(Target);
       Free_Weak_Reference(Weak_Ref);
    end Test_Weak_References;
 
@@ -376,8 +375,8 @@ procedure Tests is
       Print_Result("10.4: Detecting cycles clears roots list", Count = 0);
 
       -- Cleanup
-      Free_Object(Obj1);
-      Free_Object(Obj2);
+      Decrement_Reference(Obj1);
+      Decrement_Reference(Obj2);
       Free_Cycle_Detector(Detector);
    end Test_Cycle_Detection;
 
@@ -407,8 +406,7 @@ procedure Tests is
       Decrement_Reference(Obj);
       Print_Result("11.3: Decrementing to zero deallocates object", Obj = null);
 
-      -- Cleanup
-      Free_Object(Obj);
+      -- No need to call Free_Object here because Decrement_Reference already freed it
    end Test_Concurrent_Reference_Counting;
 
    -- ========================================================================
@@ -547,8 +545,8 @@ procedure Tests is
       end;
 
       -- Cleanup
-      Free_Object(Obj1);
-      Free_Object(Obj2);
+      Decrement_Reference(Obj1);
+      Decrement_Reference(Obj2);
    end Test_Update_Coalescing_Edge_Cases;
 
 begin
