@@ -328,6 +328,7 @@ package body Reference_Counting is
 
    -- Register a pointer update (coalesces redundant updates)
    -- Register a pointer update (coalesces redundant updates)
+   -- Register a pointer update (coalesces redundant updates)
    procedure Register_Update (
       Manager : in out Update_Manager_Access;
       Old_Obj, New_Obj : in out Object_Access) is
@@ -340,7 +341,7 @@ package body Reference_Counting is
       Local_New_Obj : Object_Access := New_Obj;
 
       Use_It : Cursor := Manager.Pending_Updates.First;
-      Found  : Boolean := False;
+      Updates_To_Delete : Update_Lists.List;
    begin
       if Manager = null then
          raise Invalid_Reference with "Cannot register update with null manager";
@@ -357,18 +358,28 @@ package body Reference_Counting is
                return;
             -- Check if the update can be coalesced with an existing one
             elsif (Current_Update.Old_Obj = Local_Old_Obj or Current_Update.New_Obj = Local_New_Obj) then
-               -- Coalesce: Remove the old update and add the new one
-               Manager.Pending_Updates.Delete(Use_It);
-               Found := True;
-               exit;
+               -- Mark this update for deletion (avoid modifying list while iterating)
+               Updates_To_Delete.Append(Current_Update);
             end if;
          end;
          Next(Use_It);
       end loop;
 
+      -- Delete all marked updates
+      for Update of Updates_To_Delete loop
+         declare
+            Use_It2 : Cursor := Manager.Pending_Updates.Find(Update);
+         begin
+            if Use_It2 /= No_Element then
+               Manager.Pending_Updates.Delete(Use_It2);
+            end if;
+         end;
+      end loop;
+
       -- Add the new update
       Manager.Pending_Updates.Append((Old_Obj => Local_Old_Obj, New_Obj => Local_New_Obj));
    end Register_Update;
+
 
 
    -- Flush all coalesced updates
