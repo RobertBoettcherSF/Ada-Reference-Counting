@@ -349,6 +349,10 @@ package body Reference_Counting is
       -- Use Update_Lists to make cursor operations visible
       use Update_Lists;
 
+      -- Copy in out parameters to local variables to avoid access checks
+      Local_Old_Obj : Object_Access := Old_Obj;
+      Local_New_Obj : Object_Access := New_Obj;
+
       Use_It : Cursor := Manager.Pending_Updates.First;
    begin
       if Manager = null then
@@ -360,8 +364,8 @@ package body Reference_Counting is
          declare
             Current_Update : Update_Record := Element(Use_It);
          begin
-            if (Objects_Are_Equal(Current_Update.Old_Obj, Old_Obj) and 
-                Objects_Are_Equal(Current_Update.New_Obj, New_Obj)) then
+            if (Objects_Are_Equal(Current_Update.Old_Obj, Local_Old_Obj) and 
+                Objects_Are_Equal(Current_Update.New_Obj, Local_New_Obj)) then
                -- Skip redundant update
                return;
             end if;
