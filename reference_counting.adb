@@ -330,6 +330,7 @@ package body Reference_Counting is
    -- Register a pointer update (coalesces redundant updates)
    -- Register a pointer update (coalesces redundant updates)
    -- Register a pointer update (coalesces redundant updates)
+   -- Register a pointer update (coalesces redundant updates)
    procedure Register_Update (
       Manager : in out Update_Manager_Access;
       Old_Obj, New_Obj : in out Object_Access) is
@@ -342,38 +343,28 @@ package body Reference_Counting is
       Local_New_Obj : Object_Access := New_Obj;
 
       Use_It : Cursor := Manager.Pending_Updates.First;
-      Cursors_To_Delete : Update_Lists.List;
    begin
       if Manager = null then
          raise Invalid_Reference with "Cannot register update with null manager";
       end if;
 
-      -- Check for redundant or coalescable updates
+      -- Check for redundant updates (skip if already exists)
       while Use_It /= No_Element loop
          declare
             Current_Update : Update_Record := Element(Use_It);
          begin
-            -- Check if the update is redundant (same old and new object)
+            -- If this is a redundant update, skip it
             if (Current_Update.Old_Obj = Local_Old_Obj and Current_Update.New_Obj = Local_New_Obj) then
-               -- Skip redundant update
-               return;
-            -- Check if the update can be coalesced with an existing one
-            elsif (Current_Update.Old_Obj = Local_Old_Obj or Current_Update.New_Obj = Local_New_Obj) then
-               -- Store the cursor position to delete later (avoid modifying list while iterating)
-               Cursors_To_Delete.Append(Use_It);
+               return; -- Skip redundant update
             end if;
          end;
          Next(Use_It);
       end loop;
 
-      -- Delete all marked updates by cursor position
-      for Cursor_Pos of Cursors_To_Delete loop
-         Manager.Pending_Updates.Delete(Cursor_Pos);
-      end loop;
-
-      -- Add the new update
+      -- Add the new update (no coalescing for simplicity)
       Manager.Pending_Updates.Append((Old_Obj => Local_Old_Obj, New_Obj => Local_New_Obj));
    end Register_Update;
+
 
 
 
