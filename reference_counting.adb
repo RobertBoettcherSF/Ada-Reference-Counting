@@ -353,11 +353,13 @@ package body Reference_Counting is
       Local_Old_Obj : Object_Access := Old_Obj;
       Local_New_Obj : Object_Access := New_Obj;
 
-      Use_It : Cursor := Manager.Pending_Updates.First;
+      Use_It : Cursor;
    begin
       if Manager = null then
          raise Invalid_Reference with "Cannot register update with null manager";
       end if;
+
+      Use_It := Manager.Pending_Updates.First;
 
       -- Check for redundant updates by comparing IDs
       while Use_It /= No_Element loop
