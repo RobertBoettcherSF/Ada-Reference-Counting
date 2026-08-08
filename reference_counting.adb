@@ -392,11 +392,13 @@ package body Reference_Counting is
       -- Use Update_Lists to make cursor operations visible
       use Update_Lists;
 
-      Use_It : Cursor := Manager.Pending_Updates.First;
+      Use_It : Cursor;
    begin
       if Manager = null then
          raise Invalid_Reference with "Cannot flush updates with null manager";
       end if;
+
+      Use_It := Manager.Pending_Updates.First;
 
       -- Apply all pending updates
       while Use_It /= No_Element loop
@@ -637,11 +639,13 @@ package body Reference_Counting is
       -- Use Object_Lists to make cursor operations visible
       use Object_Lists;
 
-      Use_It : Cursor := Detector.Roots.First;
+      Use_It : Cursor;
    begin
       if Detector = null then
          raise Invalid_Reference with "Cannot detect cycles with null detector";
       end if;
+
+      Use_It := Detector.Roots.First;
 
       -- Simulate cycle detection by checking if any object in roots has Ref_Count > 0
       -- In a real implementation, this would involve a graph traversal
